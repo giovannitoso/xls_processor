@@ -36,15 +36,27 @@
 # Variables
 SCRIPT_BASENAME="xls_processor"
 LOG_FILE="${SCRIPT_BASENAME}.log"
+OUTPUT_FILENAME="output.csv"
+PROCESSOR_FILENAME="processor.tcl"
 
 # Functions
 log_with_date() {
     echo "[$(date +"%Y-%m-%d %H:%M:%S")] ${1}" >> ${LOG_FILE}
 }
 
+# Check the required scripts
+if [ -f ${PROCESSOR_FILENAME} ]; then
+    log_with_date "chmod +x ${PROCESSOR_FILENAME}"
+    chmod +x ${PROCESSOR_FILENAME}
+else
+    log_with_date "Processor file ${PROCESSOR_FILENAME} not available. Exiting ..."
+    exit 1
+fi
+
 # Check the input parameters
 if [ "$#" -ne 2 ]; then
-    log_with_date "Error wrong number of params: $@"
+    log_with_date "Error wrong number of params: $@. Exiting ..."
+    exit 1
 fi
 ASSOCIATIONS_FILENAME=${1}
 EXCEL_FILENAME=${2}
@@ -63,9 +75,10 @@ else
 fi
 
 # Remove duplicated lines
-OUTPUT_CSV_FILENAME=`ls *.csv`
-log_with_date"Removing duplicated lines in ${OUTPUT_CSV_FILENAME}"
-cat ${OUTPUT_CSV_FILENAME} | sort | uniq > ${OUTPUT_CSV_FILENAME}.uniq
+ASSOCIATIONS_CSV_FILENAME="`basename ${ASSOCIATIONS_FILENAME} .xls`.csv"
+ASSOCIATIONS_CSV_UNIQ_FILENAME="${ASSOCIATIONS_CSV_FILENAME}.uniq"
+log_with_date "Removing duplicated lines in ${ASSOCIATIONS_CSV_FILENAME}"
+cat ${ASSOCIATIONS_CSV_FILENAME} | sort | uniq > ${ASSOCIATIONS_CSV_UNIQ_FILENAME}
 
 # Convert from xls to csv the excel file to be processed
 if [ -f ${EXCEL_FILENAME} ]; then
@@ -75,7 +88,26 @@ else
     log_with_date "${EXCEL_FILENAME} does not exist. Exiting ..."
     exit 1
 fi
+EXCEL_CSV_FILENAME="`basename ${EXCEL_FILENAME} .xls`.csv"
 
-exec processor.tcl outfile.csv
+if [ -f ${OUTPUT_FILENAME} ]; then
+    rm ${OUTPUT_FILENAME}
+fi
+
+./processor.tcl ${ASSOCIATIONS_CSV_UNIQ_FILENAME} ${EXCEL_CSV_FILENAME} ${OUTPUT_FILENAME}
+
+# Clean the folder
+log_with_date "Cleaning temporary files."
+if [ -f ${ASSOCIATIONS_CSV_FILENAME} ]; then
+    rm ${ASSOCIATIONS_CSV_FILENAME}
+fi
+
+if [ -f ${ASSOCIATIONS_CSV_UNIQ_FILENAME} ]; then
+    rm ${ASSOCIATIONS_CSV_UNIQ_FILENAME}
+fi
+
+if [ -f ${EXCEL_CSV_FILENAME} ]; then
+    rm ${EXCEL_CSV_FILENAME}
+fi
 
 cd - > /dev/null
